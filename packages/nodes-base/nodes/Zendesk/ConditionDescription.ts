@@ -23,29 +23,11 @@ export const conditionFields: INodeProperties[] = [
 				resource: ['ticket'],
 			},
 		},
-		options: [
-			{
-				name: 'Assignee',
-				value: 'assignee',
-			},
-			{
-				name: 'Group',
-				value: 'group',
-			},
-			{
-				name: 'Priority',
-				value: 'priority',
-			},
-			{
-				name: 'Status',
-				value: 'status',
-			},
-			{
-				name: 'Type',
-				value: 'type',
-			},
-		],
-		default: 'status',
+		typeOptions: {
+			loadOptionsMethod: 'getTFields',
+		},
+		default: '',
+		description: 'Select a field for this condition',
 	},
 	// eslint-disable-next-line n8n-nodes-base/node-param-operation-without-no-data-expression
 	{
@@ -96,7 +78,7 @@ export const conditionFields: INodeProperties[] = [
 		],
 		displayOptions: {
 			hide: {
-				field: ['assignee'],
+				field: ['assignee', 'update_type'],
 			},
 		},
 		default: 'is',
@@ -144,6 +126,9 @@ export const conditionFields: INodeProperties[] = [
 			show: {
 				field: ['assignee'],
 			},
+			hide: {
+				field: ['update_type']
+			}
 		},
 		default: 'is',
 	},
@@ -289,5 +274,17 @@ export const conditionFields: INodeProperties[] = [
 			},
 		},
 		default: '',
+	},
+	{
+		displayName: 'Value',
+		name: 'value',
+		type: 'string',
+		displayOptions: {
+			hide: {
+				field: ['status', 'type', 'priority', 'group', 'assignee'],
+			},
+		},
+		default: '',
+		description: 'Enter a value for this condition if the field does not have predefined options.',
 	},
 ];

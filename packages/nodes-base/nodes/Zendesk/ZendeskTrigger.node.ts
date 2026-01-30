@@ -176,6 +176,72 @@ export class ZendeskTrigger implements INodeType {
 				}
 				return returnData;
 			},
+			// Get all the ticket fields to display them to user so that they can
+			// select them easily, removes 'ticket.' prefix
+			async getTFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const returnData: INodePropertyOptions[] = [
+					...triggerPlaceholders,
+					{ name: 'Assignee', value: 'assignee', description: 'Ticket assignee' },
+					{ name: 'Group', value: 'group', description: 'Ticket group' },
+					{ name: 'Update Type', value: 'update_type', description: 'Ticket update type' },
+				];
+
+				const customFields = [
+					'text',
+					'textarea',
+					'date',
+					'integer',
+					'decimal',
+					'regexp',
+					'multiselect',
+					'tagger',
+				];
+
+				// Fetch all ticket fields from Zendesk
+				const fields = await zendeskApiRequestAllItems.call(
+					this,
+					'ticket_fields',
+					'GET',
+					'/ticket_fields',
+				);
+
+				for (const field of fields) {
+					if (
+						customFields.includes(field.type as string) &&
+						field.removable &&
+						field.active
+					) {
+						const fieldName = field.title;
+						const fieldValue = `ticket_field_${field.id}`;
+
+						returnData.push({
+							name: fieldName,
+							value: fieldValue,
+							description: `Custom field ${fieldName}`,
+						});
+					}
+				}
+
+				// Normalize values by removing ticket. and ticket_
+				for (const option of returnData) {
+					if (typeof option.value === 'string' && option.value.startsWith('ticket.field_')) {
+						option.value = option.value.replace('ticket.field_', 'custom_fields_');
+					}
+					if (typeof option.value === 'string' && option.value.startsWith('ticket_field_')) {
+						option.value = option.value.replace('ticket_field_', 'custom_fields_');
+					}
+					if (typeof option.value === 'string' && option.value.startsWith('ticket.')) {
+						option.value = option.value.replace('ticket.', '');
+					}
+					if (typeof option.value === 'string' && option.value.startsWith('ticket_')) {
+						option.value = option.value.replace('ticket_', '');
+					}
+
+				}
+
+				return returnData;
+			},
+
 			// Get all the groups to display them to user so that they can
 			// select them easily
 			async getGroups(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -228,13 +294,15 @@ export class ZendeskTrigger implements INodeType {
 				const resultAll = [],
 					resultAny = [];
 
-				const conditionsAll = conditions.all as [IDataObject];
+				const conditionsAll = conditions.all as [IDataObject] || [];
 				if (conditionsAll) {
 					for (const conditionAll of conditionsAll) {
 						const aux: IDataObject = {};
 						aux.field = conditionAll.field;
-						aux.operator = conditionAll.operation;
-						if (conditionAll.operation !== 'changed' && conditionAll.operation !== 'not_changed') {
+						if (conditionAll.field !== 'update_type') {
+							aux.operator = conditionAll.operation;
+						}
+						if (conditionAll.operation !== 'changed' &&	conditionAll.operation !== 'not_changed') {
 							aux.value = conditionAll.value;
 						} else {
 							aux.value = null;
@@ -243,13 +311,15 @@ export class ZendeskTrigger implements INodeType {
 					}
 				}
 
-				const conditionsAny = conditions.any as [IDataObject];
+				const conditionsAny = conditions.any as [IDataObject] || [];
 				if (conditionsAny) {
 					for (const conditionAny of conditionsAny) {
 						const aux: IDataObject = {};
 						aux.field = conditionAny.field;
-						aux.operator = conditionAny.operation;
-						if (conditionAny.operation !== 'changed' && conditionAny.operation !== 'not_changed') {
+						if (conditionAny.field !== 'update_type') {
+							aux.operator = conditionAny.operation;
+						}
+						if (conditionAny.operation !== 'changed' &&	conditionAny.operation !== 'not_changed') {
 							aux.value = conditionAny.value;
 						} else {
 							aux.value = null;
@@ -269,6 +339,7 @@ export class ZendeskTrigger implements INodeType {
 				}
 
 				// no target was found
+				
 				if (webhookData.targetId === undefined) {
 					return false;
 				}
@@ -279,7 +350,7 @@ export class ZendeskTrigger implements INodeType {
 				for (const trigger of triggers) {
 					const toDeleteTriggers = [];
 					// this trigger belong to the current target
-					if (trigger.actions[0].value[0].toString() === webhookData.targetId?.toString()) {
+					if (trigger.actions[0].value[0] != null && trigger.actions[0].value[0]?.toString() === webhookData.targetId?.toString()) {
 						toDeleteTriggers.push(trigger.id);
 					}
 					// delete all trigger attach to this target;
@@ -320,16 +391,15 @@ export class ZendeskTrigger implements INodeType {
 						message['ticket.id'] = '{{ticket.id}}';
 					}
 
-					const conditionsAll = conditions.all as [IDataObject];
+					const conditionsAll = conditions.all as [IDataObject] || [];
 					if (conditionsAll) {
 						for (const conditionAll of conditionsAll) {
 							const aux: IDataObject = {};
 							aux.field = conditionAll.field;
-							aux.operator = conditionAll.operation;
-							if (
-								conditionAll.operation !== 'changed' &&
-								conditionAll.operation !== 'not_changed'
-							) {
+							if (conditionAll.field !== 'update_type') {
+								aux.operator = conditionAll.operation;
+							}
+							if (conditionAll.operation !== 'changed' &&	conditionAll.operation !== 'not_changed') {
 								aux.value = conditionAll.value;
 							} else {
 								aux.value = null;
@@ -338,16 +408,15 @@ export class ZendeskTrigger implements INodeType {
 						}
 					}
 
-					const conditionsAny = conditions.any as [IDataObject];
+					const conditionsAny = conditions.any as [IDataObject] || [];
 					if (conditionsAny) {
 						for (const conditionAny of conditionsAny) {
 							const aux: IDataObject = {};
 							aux.field = conditionAny.field;
-							aux.operator = conditionAny.operation;
-							if (
-								conditionAny.operation !== 'changed' &&
-								conditionAny.operation !== 'not_changed'
-							) {
+							if (conditionAny.field !== 'update_type') {
+								aux.operator = conditionAny.operation;
+							}
+							if (conditionAny.operation !== 'changed' &&	conditionAny.operation !== 'not_changed') {
 								aux.value = conditionAny.value;
 							} else {
 								aux.value = null;
@@ -388,6 +457,10 @@ export class ZendeskTrigger implements INodeType {
 
 					// if target id exists but trigger does not then reuse the target
 					// and create the trigger else create both
+					if (!target?.id) {
+						throw new NodeOperationError(this.getNode(), 'Webhook creation failed');
+					}
+
 					if (webhookData.targetId !== undefined) {
 						target.id = webhookData.targetId;
 					} else {
@@ -399,10 +472,22 @@ export class ZendeskTrigger implements INodeType {
 
 					((bodyTrigger.trigger as IDataObject).actions as IDataObject[])[0].value = [
 						target.id,
-						JSON.stringify(message),
+						message,
 					];
-
+					const triggerPayload = bodyTrigger.trigger as IDataObject | undefined;
+					if (!triggerPayload) {
+						throw new NodeOperationError(this.getNode(), 'Trigger payload is undefined');
+					}
+					console.log(
+						'FINAL ZENDESK CONDITIONS:',
+						JSON.stringify(triggerPayload.conditions, null, 2),
+					);
+					console.log(
+						'TRIGGER CREATE PAYLOAD:',
+						JSON.stringify(bodyTrigger, null, 2),
+					);
 					const { trigger } = await zendeskApiRequest.call(this, 'POST', '/triggers', bodyTrigger);
+					console.log("trigger response: ", JSON.stringify(trigger))
 					webhookData.webhookId = trigger.id;
 					webhookData.targetId = target.id;
 				}
@@ -425,6 +510,9 @@ export class ZendeskTrigger implements INodeType {
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
 		const req = this.getRequestObject();
+		console.log('ZENDESK WEBHOOK HIT ✅');
+		console.log('HEADERS:', JSON.stringify(req.headers, null, 2));
+		console.log('BODY:', JSON.stringify(req.body, null, 2));
 		return {
 			workflowData: [this.helpers.returnJsonArray(req.body as IDataObject)],
 		};
